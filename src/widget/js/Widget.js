@@ -61,6 +61,7 @@ var L = Y.Lang,
     UI_ATTRS = [VISIBLE, DISABLED, HEIGHT, WIDTH, FOCUSED],
 
     WEBKIT = Y.UA.webkit,
+    DOCUMENT_ELEMENT = Y.one(BODY).get(OWNER_DOCUMENT),
 
     // Widget nodeguid-to-instance map.
     _instances = {};
@@ -350,6 +351,45 @@ Widget.getByNode = function(node) {
     return widget || null;
 };
 
+Widget.getByFocused = function () {
+    var widget;
+    Y.Object.some(_instances, function (i) {
+        if (i._domFocus) {
+            widget = i;
+            return true;
+        }
+    });
+    return widget || null;
+};
+
+Widget._onDocMouseDown = function (evt) {
+    var widget = Widget.getByNode(evt.target);
+    if (widget && widget._domFocus) {
+        Widget._onDocFocus(evt);
+    }
+};
+
+Widget._onDocFocus = function (evt) {
+    var focused = Widget.getByFocused(),
+        widget = Widget.getByNode(evt.target);
+
+    if (focused) {
+        focused._domFocus = false;
+        focused._set(FOCUSED, focused._domFocus, {src : UI})
+    }
+
+    if (widget) {
+        widget._domFocus = true;
+        widget._set(FOCUSED, widget._domFocus, {src : UI});
+    }
+};
+
+DOCUMENT_ELEMENT.on('focus', Widget._onDocFocus);
+
+if (WEBKIT) {
+    DOCUMENT_ELEMENT.on('mousedown', Widget._onDocMouseDown);
+}
+
 Y.extend(Widget, Y.Base, {
 
     /**
@@ -465,8 +505,6 @@ Y.extend(Widget, Y.Base, {
         if (this.UI_EVENTS) {
             this._destroyUIEvents();
         }
-
-        this._unbindUI(boundingBox);
 
         if (deep) {
             // Removes and destroys all child nodes.
@@ -846,51 +884,6 @@ Y.extend(Widget, Y.Base, {
      */
     _bindUI: function() {
         this._bindAttrUI(this._UI_ATTRS.BIND);
-        this._bindDOM();
-    },
-
-    /**
-     * @method _unbindUI
-     * @protected
-     */
-    _unbindUI : function(boundingBox) {
-        this._unbindDOM(boundingBox);
-    },
-
-    /**
-     * Sets up DOM listeners, on elements rendered by the widget.
-     * 
-     * @method _bindDOM
-     * @protected
-     */
-    _bindDOM : function() {
-        var oDocument = this.get(BOUNDING_BOX).get(OWNER_DOCUMENT);
-
-        // TODO: Perf Optimization: Use Widget.getByNode delegation, to get by 
-        // with just one _onDocFocus subscription per sandbox, instead of one per widget
-        this._hDocFocus = oDocument.on("focus", this._onDocFocus, this);
-
-        //	Fix for Webkit:
-        //	Document doesn't receive focus in Webkit when the user mouses 
-        //	down on it, so the "focused" attribute won't get set to the 
-        //	correct value.
-        if (WEBKIT) {
-            this._hDocMouseDown = oDocument.on("mousedown", this._onDocMouseDown, this);
-        }
-    },
-
-    /**
-     * @method _unbindDOM
-     * @protected
-     */   
-    _unbindDOM : function(boundingBox) {
-        if (this._hDocFocus) {
-            this._hDocFocus.detach();
-        }
-
-        if (WEBKIT && this._hDocMouseDown) {
-            this._hDocMouseDown.detach();
-        }
     },
 
     /**
@@ -995,31 +988,6 @@ Y.extend(Widget, Y.Base, {
         } else {
             boundingBox.removeAttribute(TAB_INDEX);
         }
-    },
-
-    /**
-     * @method _onDocMouseDown
-     * @description "mousedown" event handler for the owner document of the 
-     * widget's bounding box.
-     * @protected
-     * @param {EventFacade} evt The event facade for the DOM focus event
-     */
-    _onDocMouseDown: function (evt) {
-        if (this._domFocus) {
-            this._onDocFocus(evt);
-        }
-    },
-
-    /**
-     * DOM focus event handler, used to sync the state of the Widget with the DOM
-     * 
-     * @method _onDocFocus
-     * @protected
-     * @param {EventFacade} evt The event facade for the DOM focus event
-     */
-    _onDocFocus: function (evt) {
-        this._domFocus = this.get(BOUNDING_BOX).contains(evt.target); // contains() checks invoking node also
-        this._set(FOCUSED, this._domFocus, { src: UI });
     },
 
     /**
