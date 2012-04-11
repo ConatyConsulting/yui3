@@ -63,7 +63,8 @@ Y_Node.ATTRS = {
         getter: function() {
             var node = this._node,
                 children = node.children,
-                childNodes, i, len;
+                childNodes, i, len,
+                TAG_NAME = TAG_NAME || 'tagName';
 
             if (!children) {
                 childNodes = node.childNodes;
