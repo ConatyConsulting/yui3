@@ -6,7 +6,7 @@ Base IO functionality. Provides basic XHR transport support.
 **/
 
 var // List of events that comprise the IO event lifecycle.
-    EVENTS = ['start', 'complete', 'end', 'success', 'failure', 'progress'],
+    EVENTS = ['start', 'complete', 'end', 'success', 'failure', 'progress', 'stream'],
 
     // Whitelist of used XHR response object properties.
     XHR_PROPS = ['status', 'statusText', 'responseText', 'responseXML'],
@@ -237,6 +237,10 @@ IO.prototype = {
         * @event io:start
         */
         this._evt(EVENTS[0], transaction, config);
+    },
+
+    stream: function(transaction, config) {
+        this._evt(EVENTS[6], transaction, config);
     },
 
    /**
@@ -492,9 +496,16 @@ IO.prototype = {
     * @param {Object} config Configuration object passed to YUI.io().
     */
     _rS: function(transaction, config) {
-        var io = this;
+        var io = this,
+            rs = transaction.c.readyState;
 
-        if (transaction.c.readyState === 4) {
+        if (config.streaming) {
+            if (rs === 3) {
+                io.stream(transaction, config);
+            }
+        }
+
+        if (rs === 4) {
             if (config.timeout) {
                 io._clearTimeout(transaction.id);
             }
